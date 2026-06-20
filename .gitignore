@@ -1,0 +1,86 @@
+# -------------------------
+# OS
+# -------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# -------------------------
+# IDEs / editors
+# -------------------------
+.vscode/
+.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# -------------------------
+# Node / Frontend
+# -------------------------
+node_modules/
+dist/
+build/
+.vite/
+.esbuild-cache/
+.parcel-cache/
+.cache/
+out/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment files (local credentials)
+.env
+.env.*.local
+.env.local
+local.env
+
+# Vite / tooling
+.vite/
+
+# -------------------------
+# Go / Backend
+# -------------------------
+/bin/
+/pkg/
+vendor/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.exe~
+
+# Go local env / logs
+.env.test
+local.env
+*.log
+
+# -------------------------
+# Uploads / generated user content
+# -------------------------
+/uploads/
+uploads/
+
+# -------------------------
+# Docker / container
+# -------------------------
+docker-compose.override.yml
+
+# -------------------------
+# Databases / generated files
+# -------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# -------------------------
+# Misc
+# -------------------------
+logs/
+coverage/
+/.cache
+
