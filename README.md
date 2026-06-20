@@ -13,7 +13,7 @@ A full-stack content moderation system that screens user-submitted images agains
 | Frontend | React + React Router + Axios + Recharts |
 | AI | Multimodal vision LLM via OpenAI-compatible chat completions API |
 | Auth | JWT, bcrypt password hashing |
-| Deployment | Docker + Docker Compose |
+
 
 ---
 
