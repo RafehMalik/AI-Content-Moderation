@@ -16,30 +16,6 @@ import (
 	"github.com/rafehmalik/ai-content-moderation/internal/repository"
 )
 
-// The 6 categories defined by the assignment spec.
-//
-// IMPORTANT — read before grading/demoing:
-// This classification layer was rewritten to use a single multimodal vision
-// LLM instead of a stack of single-purpose models (NSFW binary classifier +
-// CLIP zero-shot + caption-then-text-zero-shot fallback). A vision LLM can
-// natively reason about all 6 categories from one image, which the old
-// pipeline could not do (it only had a real signal for one category and
-// left the other five at a hardcoded 0%).
-//
-// Provider verified live as of this build (checked June 2026):
-//   - Hugging Face Inference Providers' OpenAI-compatible router, using
-//     Qwen/Qwen2.5-VL-32B-Instruct. This is the default below.
-//   - Groq's only vision-capable model, meta-llama/llama-4-scout-17b-16e-instruct,
-//     was announced deprecated on 2026-06-17 with a shutdown date of
-//     2026-07-17, and Groq's listed replacements (openai/gpt-oss-120b,
-//     qwen/qwen3.6-27b) are text-only. So Groq is wired up below as an
-//     OPTIONAL alternative provider, but don't depend on it past that date
-//     without re-checking https://console.groq.com/docs/vision for a new
-//     vision model.
-//
-// The provider/model/endpoint are all environment-configurable (see
-// classifyImageWithLLM) precisely so this can be swapped without another
-// code change if a provider's model lineup shifts again.
 var Categories = []string{
 	"Graphic Violence",
 	"Hate Symbols",
@@ -49,9 +25,6 @@ var Categories = []string{
 	"Harassment & Humiliation",
 }
 
-// categoryDefinitions mirrors the definitions given in the spec and is
-// embedded directly into the prompt sent to the vision LLM, so the model's
-// notion of each category matches the policy engine's notion of it.
 var categoryDefinitions = map[string]string{
 	"Graphic Violence":         "physical harm, gore, or serious injury depicted in the image",
 	"Hate Symbols":             "extremist or terrorist symbols, flags, insignia, or imagery",
@@ -62,25 +35,17 @@ var categoryDefinitions = map[string]string{
 }
 
 const (
-	// defaultLLMAPIURL is Hugging Face's OpenAI-compatible chat completions
-	// router, which auto-routes to whichever inference provider currently
-	// hosts the requested model.
 	defaultLLMAPIURL = "https://router.huggingface.co/v1/chat/completions"
-	// defaultLLMModel is a vision-language model confirmed live on HF
-	// Inference Providers as of this build.
+
 	defaultLLMModel = "Qwen/Qwen2.5-VL-7B-Instruct:together"
 
 	llmRequestTimeout = 60 * time.Second
 )
 
-// llmCategoryScore is the parsed-and-validated result for one category,
-// produced by the vision LLM.
 type llmCategoryScore struct {
 	Confidence float64
 	Reason     string
 }
-
-// --- request/response shapes for the OpenAI-compatible chat completions API ---
 
 type llmChatRequest struct {
 	Model       string           `json:"model"`
@@ -105,7 +70,6 @@ type llmChatResponse struct {
 	} `json:"error"`
 }
 
-// llmCategoryJSON is the per-category shape we instruct the model to emit.
 type llmCategoryJSON struct {
 	Category   string  `json:"category"`
 	Confidence float64 `json:"confidence"`
@@ -116,12 +80,6 @@ type llmModerationJSON struct {
 	Categories []llmCategoryJSON `json:"categories"`
 }
 
-// ModerateImage returns: categoryResults, outcome, policyVersion, error
-//
-// NOTE: the policy engine, threshold logic, AutoBlock/FlagReview logic, and
-// return signature below are unchanged from the previous implementation.
-// Only the score-gathering step (previously NSFW + CLIP + caption fallback)
-// was replaced with a single vision LLM call.
 func ModerateImage(imagePath string) ([]models.CategoryResult, string, string, error) {
 	policies, err := repository.GetAllPolicies()
 	if err != nil {
@@ -192,21 +150,6 @@ func ModerateImage(imagePath string) ([]models.CategoryResult, string, string, e
 	return results, finalOutcome, policyVersion, nil
 }
 
-// classifyImageWithLLM sends the image to a multimodal vision LLM and asks
-// it to score all 6 moderation categories in one call. It is provider-
-// agnostic: point it at HF's router (default) or any other OpenAI-compatible
-// vision endpoint (e.g. Groq) via env vars.
-//
-// Env vars:
-//   - LLM_VISION_API_URL   (default: HF router, see defaultLLMAPIURL)
-//   - LLM_VISION_MODEL     (default: defaultLLMModel)
-//   - LLM_VISION_API_TOKEN (falls back to HF_API_TOKEN for backward compat)
-//
-// To use Groq instead (see the deprecation caveat at the top of this file):
-//
-//	LLM_VISION_API_URL=https://api.groq.com/openai/v1/chat/completions
-//	LLM_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
-//	LLM_VISION_API_TOKEN=<your GROQ_API_KEY>
 func classifyImageWithLLM(imageBytes []byte) (map[string]llmCategoryScore, error) {
 	apiURL := os.Getenv("LLM_VISION_API_URL")
 	if apiURL == "" {
@@ -332,9 +275,6 @@ func classifyImageWithLLM(imageBytes []byte) (map[string]llmCategoryScore, error
 	return scores, nil
 }
 
-// buildModerationPrompt builds the instruction text sent alongside the
-// image, embedding the spec's category definitions and a strict JSON
-// output schema.
 func buildModerationPrompt() string {
 	var sb strings.Builder
 	sb.WriteString("You are an automated content-moderation classifier for a user-generated-content platform. ")
@@ -357,9 +297,6 @@ func buildModerationPrompt() string {
 	return sb.String()
 }
 
-// extractJSON strips common wrapping (markdown code fences, stray prose
-// before/after) that vision LLMs sometimes add despite being told not to,
-// and returns the best-guess JSON object substring.
 func extractJSON(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "```json")
@@ -376,8 +313,6 @@ func extractJSON(s string) string {
 	return s[start : end+1]
 }
 
-// clampConfidence guards against an out-of-range or malformed score from
-// the model so it can never accidentally bypass or force a policy action.
 func clampConfidence(v float64) float64 {
 	if v < 0 {
 		return 0
