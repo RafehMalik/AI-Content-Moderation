@@ -33,13 +33,7 @@ LLM_VISION_MODEL=Qwen/Qwen2.5-VL-7B-Instruct:together
 LLM_VISION_API_TOKEN=hf_your_token_here
 ```
 
-### 2. Run with Docker
-
-```bash
-docker-compose up --build
-```
-
-### 3. Run locally
+### 2. Run locally
 
 ```bash
 # backend
